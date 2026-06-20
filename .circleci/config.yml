@@ -147,7 +147,7 @@ jobs:
           command: |
             choco install gh -y --no-progress --limit-output
             $tag = "windows"
-            gh release create $tag --repo essence-dx/js --title "Windows build" --notes "CI Windows artifact" --target $env:CIRCLE_SHA1 2>$null || $true
+            gh release create $tag --repo essence-dx/js --title "Windows build" --notes "CI Windows artifact" --target $env:CIRCLE_SHA1 2>$null; $LASTEXITCODE = 0
             gh release upload $tag dist\dx-js-windows-x86_64-*.zip --repo essence-dx/js --clobber
 
 
@@ -211,4 +211,5 @@ workflows:
 # workflows:
 #   linux-release: ...
 #   macos-release: ...
+
 
