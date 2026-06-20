@@ -5,3 +5,5 @@ build:
     New-Item -ItemType Directory -Force -Path G:\Dx\bin | Out-Null
     Copy-Item target\release\js.exe G:\Dx\bin\js.exe -Force
 
+
+
