@@ -1,3 +1,4 @@
+#![no_main]
 //! `libbun_rust.a` — the Rust-port staticlib.
 //!
 //! Built by `cargo build -p bun_bin` (emitted from `scripts/build/rust.ts`)

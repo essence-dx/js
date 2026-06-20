@@ -15,7 +15,7 @@ crate-type = ["staticlib"]
 
 [[bin]]
 name = "js"
-path = "lib.rs"
+path = "js.rs"
 
 [lints]
 workspace = true
