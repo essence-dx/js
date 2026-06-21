@@ -129,7 +129,7 @@ jobs:
               Invoke-RestMethod -Uri "https://bun.sh/install.ps1" | Invoke-Expression
             }
             # The bun installer adds to PATH, but we need it immediately
-            $env:Path = "$env:USERPROFILE\.bun\bin;$env:Path"
+            $env:Path = "$env:USERPROFILE\.bun\bin;C:\Program Files\PowerShell\7;C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\ninja\tools;$env:Path"
             bun --version
             bun install --frozen-lockfile
             bun scripts/build.ts --configure-only
