@@ -981,7 +981,8 @@ function emitFetch(
   invalidateStaleSource(srcDir, refStamp, source.commit, patchPaths);
 
   n.build({
-    outputs: [refStamp, ...compiledSources],
+    outputs: [refStamp],
+    implicitOutputs: compiledSources,
     rule: "dep_fetch",
     inputs: [],
     // fetch-cli.ts (which has fetchDep) + patch files. Not this file —

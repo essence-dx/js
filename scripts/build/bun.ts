@@ -175,12 +175,24 @@ export function emitBun(n: Ninja, cfg: Config, sources: Sources): BunOutput {
   n.blank();
   const deps: ResolvedDep[] = [];
   const depsByName = new Map<string, ResolvedDep>();
+  const cloneTargets: string[] = [];
   for (const dep of allDeps) {
     const resolved = resolveDep(n, cfg, dep, depsByName);
     if (resolved !== null) {
       deps.push(resolved);
       depsByName.set(dep.name, resolved);
+      // Only deps fetched from a remote archive get a clone-* target;
+      // prebuilt/in-tree/local deps have no fetch step.
+      if (dep.source(cfg).kind === "github-archive") {
+        cloneTargets.push(`clone-${dep.name}`);
+      }
     }
+  }
+  // Convenience target: fetch all vendored deps before any compile starts.
+  // Workaround for a ninja dependency-graph race where compile edges can
+  // start before their dep's fetch completes (observed on darwin aarch64 CI).
+  if (cloneTargets.length > 0) {
+    n.phony("clone-all", cloneTargets);
   }
 
   // Collect all dep lib paths, include dirs, output stamps, and directly-

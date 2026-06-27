@@ -159,6 +159,17 @@ async function main(): Promise<void> {
       await startGroup("Download artifacts", () => downloadArtifacts(result.cfg));
     }
 
+    // Pre-fetch all vendored deps so no compile edge races ahead of a
+    // slow download+extract (ninja dep-graph race on darwin CI).
+    if (result.cfg.mode === "full") {
+      await startGroup("Pre-fetch vendor deps", () =>
+        spawnWithAnnotations("ninja", ["-C", result.cfg.buildDir, "clone-all"], {
+          label: "pre-fetch",
+          env: ninjaEnv(result.cfg, result.env),
+        }),
+      );
+    }
+
     await startGroup("Build", () =>
       spawnWithAnnotations("ninja", ninjaArgv(result.cfg), { label: "ninja", env: ninjaEnv(result.cfg, result.env) }),
     );
@@ -211,6 +222,20 @@ async function main(): Promise<void> {
       }
       return;
     }
+
+    // Pre-fetch all vendored deps before the main build to avoid ninja
+    // dependency-graph races (compile starting before fetch completes).
+    if (result.cfg.mode === "full") {
+      status("pre-fetch: clone-all");
+      const prefetch = spawnSync("ninja", ["-C", result.cfg.buildDir, "clone-all"], {
+        stdio: ["inherit", "inherit", "inherit"],
+        env: ninjaEnv(result.cfg, result.env),
+      });
+      if (prefetch.status !== 0) {
+        process.exit(prefetch.status ?? 1);
+      }
+    }
+
     // FD 3 sideband — only when interactive. stream.ts (wrapping deps +
     // cargo) writes live output there, bypassing ninja's per-job buffering.
     // A human watching a terminal wants to see cmake configure spew and
