@@ -1501,9 +1501,11 @@ function emitDirect(
   const defFlags = Object.entries(spec.defines ?? {}).map(([k, v]) => defineFlag(k, v));
   const libFlags = [...baseFlags, ...picFlags, ...incFlags, ...defFlags, ...(spec.cflags ?? [])];
 
-  // Sources must exist before compile attempts. sourceStamp (or the fetch
-  // .ref) is order-only: we don't want every .o recompiling when the stamp
-  // mtime bumps but the .c files are unchanged — the depfile knows better.
+  // Sources must exist before compile attempts. sourceStamp (the dep's own
+  // .ref) is an implicit input so ninja enforces ordering AND will recompile
+  // if fetch changes the stamp — safe because .ref is written last, so its
+  // mtime only moves when sources also change. fetchDepStamps stay order-only:
+  // a different dep re-fetching shouldn't trigger this dep's recompile.
   const orderOnly = [sourceStamp, ...fetchDepStamps];
 
   // ─── Generated headers (optional) ───
@@ -1583,9 +1585,11 @@ function emitDirect(
   // ─── Compile + archive ───
   // Generated headers (codegen + subst) are implicit inputs to every .o —
   // library sources include them. buildDir goes on -I so #include "foo.h"
-  // finds literal, subst, and codegen headers alike.
+  // finds literal, subst, and codegen headers alike. sourceStamp is also
+  // implicit (not order-only) so ninja's dependency chain is reinforced:
+  // the .ref stamp must exist AND be up-to-date before compile starts.
   if (generatedHeader !== undefined) generated.push(generatedHeader);
-  const implicit = generated;
+  const implicit = [sourceStamp, ...generated];
   const genInc = needsBuildDirInc ? [`-I${q(buildDir)}`] : [];
 
   const objects = spec.sources.map(s => {
@@ -1603,7 +1607,7 @@ function emitDirect(
     const isAsm = path.endsWith(".S");
     const opts = {
       flags: [...(isC && isCxx ? ["-x", "c++"] : []), ...libFlags, ...genInc, ...extra],
-      orderOnlyInputs: orderOnly,
+      orderOnlyInputs: fetchDepStamps,
       implicitInputs: implicit,
     };
     return isC || isAsm ? cc(n, cfg, abs, opts) : cxx(n, cfg, abs, opts);

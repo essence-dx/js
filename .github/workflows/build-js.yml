@@ -79,13 +79,6 @@ jobs:
       - name: Install JS deps
         run: bun install --frozen-lockfile
 
-      - name: Pre-fetch vendor dependencies
-        run: |
-          bun scripts/build.ts --profile=release --configure-only ${{ matrix.build-args }}
-          cd build/release
-          targets=$(ninja -t targets | grep '^clone-' | sed 's/:.*//' | tr '\n' ' ')
-          if [ -n "$targets" ]; then ninja $targets; fi
-
       - name: Build
         run: bun scripts/build.ts --profile=release ${{ matrix.build-args }}
 
