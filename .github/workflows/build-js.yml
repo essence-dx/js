@@ -1,0 +1,91 @@
+# Built by Blacksmith (not GitHub-hosted runners).
+# DX GitHub Actions temporarily disabled for standard jobs.
+name: Build js
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  BUN_VERSION: "1.3.2"
+  LLVM_MAJOR: "21"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: blacksmith-16vcpu-ubuntu-2404
+            native: true
+            build-args: ""
+          - name: linux-aarch64
+            runner: blacksmith-16vcpu-ubuntu-2404-arm
+            native: true
+            build-args: ""
+          - name: darwin-x86_64
+            runner: blacksmith-16vcpu-ubuntu-2404
+            native: false
+            build-args: "--os=darwin --arch=x64"
+          - name: darwin-aarch64
+            runner: blacksmith-16vcpu-ubuntu-2404
+            native: false
+            build-args: "--os=darwin --arch=aarch64"
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup LLVM ${{ env.LLVM_MAJOR }}
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{ env.LLVM_MAJOR }} main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends cmake ninja-build clang-${{ env.LLVM_MAJOR }} lld-${{ env.LLVM_MAJOR }} llvm-${{ env.LLVM_MAJOR }} xz-utils
+          for f in /usr/lib/llvm-${{ env.LLVM_MAJOR }}/bin/*; do sudo ln -sf "$f" /usr/bin; done
+          sudo ln -sf clang-${{ env.LLVM_MAJOR }} /usr/bin/clang
+          sudo ln -sf clang++-${{ env.LLVM_MAJOR }} /usr/bin/clang++
+          sudo ln -sf lld-${{ env.LLVM_MAJOR }} /usr/bin/ld.lld
+          sudo ln -sf ld.lld /usr/bin/ld
+
+      - name: Setup Bun
+        run: |
+          os=linux
+          case "$(uname -m)" in
+            arm64 | aarch64) arch=aarch64;;
+            *) arch=x64;;
+          esac
+          target="bun-${os}-${arch}"
+          curl -fsSL "https://pub-5e11e972747a44bf9aaf9394f185a982.r2.dev/releases/bun-v${{ env.BUN_VERSION }}/${target}.zip" -o /tmp/bun.zip --retry 5
+          unzip /tmp/bun.zip -d /tmp/bun
+          mkdir -p ${{ runner.temp }}/.bun/bin
+          mv /tmp/bun/*/bun* ${{ runner.temp }}/.bun/bin/
+          chmod +x ${{ runner.temp }}/.bun/bin/*
+          ln -fs ${{ runner.temp }}/.bun/bin/bun ${{ runner.temp }}/.bun/bin/bunx
+          echo "${{ runner.temp }}/.bun/bin" >> $GITHUB_PATH
+
+      - name: Setup Rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-05-06 --component rust-src llvm-tools
+          rustup default nightly-2026-05-06
+          rustup target add --toolchain nightly-2026-05-06 x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Install JS deps
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun scripts/build.ts --profile=release ${{ matrix.build-args }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dx-js-${{ matrix.name }}
+          path: build/release/bun
+          if-no-files-found: error
+          overwrite: true
