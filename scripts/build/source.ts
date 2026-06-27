@@ -981,11 +981,7 @@ function emitFetch(
   invalidateStaleSource(srcDir, refStamp, source.commit, patchPaths);
 
   n.build({
-    outputs: [refStamp],
-    // Source files bun compiles directly (picohttpparser.c). Declaring
-    // them as outputs tells ninja "fetch creates these" — otherwise ninja
-    // errors "missing and no known rule to make it" on fresh checkouts.
-    ...(compiledSources.length > 0 && { implicitOutputs: compiledSources }),
+    outputs: [refStamp, ...compiledSources],
     rule: "dep_fetch",
     inputs: [],
     // fetch-cli.ts (which has fetchDep) + patch files. Not this file —
