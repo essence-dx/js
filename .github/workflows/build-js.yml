@@ -71,9 +71,9 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup set profile minimal
-          rustup toolchain install nightly-2026-05-06 --component rust-src llvm-tools
+          rustup toolchain install nightly-2026-05-06
           rustup default nightly-2026-05-06
+          rustup component add --toolchain nightly-2026-05-06 rust-src llvm-tools
           rustup target add --toolchain nightly-2026-05-06 x86_64-apple-darwin aarch64-apple-darwin
 
       - name: Install JS deps
